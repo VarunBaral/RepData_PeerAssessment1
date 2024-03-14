@@ -7,19 +7,72 @@ output:
 
 
 ## Loading and preprocessing the data
+unzip("activity.zip")
+walkdata <- read.csv("activity.csv")
 
 
 
 ## What is mean total number of steps taken per day?
 
 
-
+totalSteps <- aggregate(steps~date, data=walkdata, sum, na.rm=TRUE)
+hist(totalSteps$steps, 
+     main="Mean total steps taken per day", 
+     xlab="Steps", 
+     ylab="Number of Days", 
+     ylim=c(0,35),
+     col="blue")
+meanSteps <- mean(totalSteps$steps)
+medianSteps <- median(totalSteps$steps)
 ## What is the average daily activity pattern?
 
-
+stepsToInterval <- aggregate(steps~interval, data=walkdata, mean, na.rm=TRUE)
+plot(steps~interval,data=stepsToInterval,type="l")
 
 ## Imputing missing values
 
+totalMissing <- sum(is.na(walkdata$steps))
+## Find the unique time slots:
+allTimeSlots <- unique(walkdata$interval)
+newdata <- walkdata
 
+## Set missing data to the average number of steps for that time slot
+## where there is not missing data
+## This strategy is the mean for that 5-minute interval
+setMissingData <- function(timeSlot) {
+    newdata[which(walkdata$interval==timeSlot & is.na(walkdata$steps)), ]$steps <<- 
+        mean(walkdata[which(walkdata$interval==timeSlot & !is.na(walkdata$steps)), ]$steps)
+}
+
+lapply(allTimeSlots, setMissingData)
+totalNewSteps <- aggregate(steps~date, data=newdata, sum, na.rm=TRUE)
+hist(totalNewSteps$steps, 
+     main="Mean total steps taken per day (with NA values imputed)", 
+     xlab="Steps", 
+     ylab="Number of Days", 
+     ylim=c(0,35),
+     col="green")
+     
 
 ## Are there differences in activity patterns between weekdays and weekends?
+## Create a new factor column with the Weekday or Weekend identifier:
+newdata$type_of_day <- weekdays(as.Date(newdata$date))
+newdata$type_of_day[newdata$type_of_day %in% c('Saturday','Sunday')] <-"Weekend"
+newdata$type_of_day[newdata$type_of_day != "Weekend"] <-"Weekday"
+newdata$type_of_day <- as.factor(newdata$type_of_day)
+
+Weekday_data <- subset(newdata, type_of_day=="Weekday")
+Weekday_stepsToInterval <- aggregate(steps~interval, data=Weekday_data, mean)
+
+Weekend_data <- subset(newdata, type_of_day=="Weekend")
+Weekend_stepsToInterval <- aggregate(steps~interval, data=Weekend_data, mean)
+
+## Create two line plots:
+par(mfrow=c(2,1), mar=c(4,4,2,1), oma=c(0,0,2,0))
+
+with(newdata, {
+    plot(steps~interval,data=Weekday_stepsToInterval,type="l",
+main="Steps for Weekdays", xlab="Time Interval", col="red")
+    plot(steps~interval,data=Weekend_stepsToInterval,type="l",
+main="Steps for Weekends", xlab="Time Interval", col="red")
+    })
